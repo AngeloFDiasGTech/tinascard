@@ -25,8 +25,8 @@
     "@cloudflare/workers-types": "^5.20261123.1",
     "@playwright/test": "^1.51.1",
     "typescript": "^5.8.2",
-    "vite": "^6.2.5",
-    "vitest": "^3.1.1",
+    "vite": "^6.4.0",
+    "vitest": "^5.1.1",
     "wrangler": "^4.10.0"
   }
 }
