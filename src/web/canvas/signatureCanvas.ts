@@ -83,28 +83,28 @@ function wrapTextLines(
 }
 
 /**
- * Desenha texto manuscrito (fonte Caveat, tinta preta) centralizado
- * com ajuste automático de tamanho para caber confortavelmente no retângulo.
+ * Desenha texto manuscrito (fonte Caveat, tinta preta) centralizado horizontalmente
+ * e alinhado na parte superior do espaço, deixando a área inferior livre para assinatura/desenho.
  */
 function drawTypedText(
   ctx: CanvasRenderingContext2D,
   text: string,
   width: number,
   height: number,
-  hasDrawing: boolean,
 ): void {
   const trimmed = text.trim();
   if (!trimmed) return;
 
   const paddingX = width * 0.08;
-  const paddingY = height * 0.1;
+  const paddingTop = height * 0.09;
+  const paddingBottom = height * 0.1;
   const maxWidth = width - paddingX * 2;
-  const maxHeight = height - paddingY * 2;
+  const maxHeight = height - paddingTop - paddingBottom;
 
-  let fontSize = Math.round(height * 0.27);
+  let fontSize = Math.round(height * 0.22);
   const minFontSize = Math.max(14, Math.round(height * 0.11));
   let lines: string[] = [];
-  let lineHeight = fontSize * 1.15;
+  let lineHeight = fontSize * 1.14;
 
   while (fontSize >= minFontSize) {
     ctx.font = `600 ${fontSize}px 'Caveat', 'Segoe Script', cursive`;
@@ -122,17 +122,11 @@ function drawTypedText(
   ctx.textBaseline = 'middle';
   ctx.font = `600 ${fontSize}px 'Caveat', 'Segoe Script', cursive`;
 
-  const totalTextHeight = lines.length * lineHeight;
-  // Quando o usuário também desenha, levemente acima do centro se for curto, ou centralizado
-  const centerBiasY = hasDrawing && lines.length <= 2 ? height * 0.44 : height * 0.5;
-  const startY = Math.max(
-    paddingY + lineHeight / 2,
-    centerBiasY - totalTextHeight / 2 + lineHeight / 2,
-  );
+  const startY = paddingTop + lineHeight / 2;
 
   lines.forEach((line, idx) => {
     const y = startY + idx * lineHeight;
-    if (y <= height - paddingY / 2) {
+    if (y <= height - paddingBottom / 2) {
       ctx.fillText(line, width / 2, y);
     }
   });
@@ -184,7 +178,7 @@ export function renderSignatureComposition(
   strokes: Stroke[],
 ): void {
   ctx.clearRect(0, 0, width, height);
-  drawTypedText(ctx, text, width, height, strokes.length > 0);
+  drawTypedText(ctx, text, width, height);
   drawStrokes(ctx, strokes, width, height);
 }
 
