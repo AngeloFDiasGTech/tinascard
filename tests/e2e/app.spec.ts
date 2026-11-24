@@ -72,9 +72,10 @@ test.describe('Tinas Card — Fluxo Completo, Concorrência e WCAG 2.2 AA', () =
     const editorModal = page.getByTestId('slot-editor-modal');
     await expect(editorModal).toBeVisible();
 
-    // Botão Finalizar começa desabilitado
+    // Botão Finalizar começa desabilitado e caixa de texto começa oculta
     const finishSlotBtn = editorModal.getByRole('button', { name: 'Finalizar' });
     await expect(finishSlotBtn).toBeDisabled();
+    await expect(editorModal.locator('#editor-text-overlay')).toBeHidden();
 
     // 3. Concorrência: segundo usuário abre o mesmo link em outro contexto e vê o espaço 1 bloqueado!
     const secondContext = await browser.newContext();
@@ -85,13 +86,10 @@ test.describe('Tinas Card — Fluxo Completo, Concorrência e WCAG 2.2 AA', () =
     await expect(lockedSlotForSecondUser).toBeDisabled();
     await expect(lockedSlotForSecondUser).toContainText('Assinando agora...');
 
-    // 4. Primeiro usuário digita texto -> OK -> depois clica em Desenhe e faz um traço
-    await editorModal.getByRole('button', { name: 'Texto', exact: true }).click();
-    await editorModal.getByPlaceholder(/Escreva sua mensagem/i).fill('Parabéns, Tina!\nMaria Silva');
-    await editorModal.getByRole('button', { name: 'OK', exact: true }).click();
-    await expect(finishSlotBtn).toBeEnabled();
-
+    // 4. Primeiro usuário testa modo Desenhe sozinho primeiro (overlay de texto deve estar oculto!)
     await editorModal.getByRole('button', { name: 'Desenhe', exact: true }).click();
+    await expect(editorModal.locator('#editor-text-overlay')).toBeHidden();
+    await expect(editorModal.locator('#editor-empty-hint')).toBeHidden();
     const canvasBox = await editorModal.locator('#editor-canvas').boundingBox();
     expect(canvasBox).not.toBeNull();
     if (canvasBox) {
@@ -101,6 +99,17 @@ test.describe('Tinas Card — Fluxo Completo, Concorrência e WCAG 2.2 AA', () =
       await page.mouse.move(canvasBox.x + 220, canvasBox.y + canvasBox.height * 0.78, { steps: 6 });
       await page.mouse.up();
     }
+    // Desenho sozinho já habilita Finalizar e Desfazer traço!
+    await expect(finishSlotBtn).toBeEnabled();
+    await expect(editorModal.getByRole('button', { name: 'Desfazer traço' })).toBeEnabled();
+
+    // Agora também adiciona Texto -> OK (combinando Texto + Desenho no mesmo espaço)
+    await editorModal.getByRole('button', { name: 'Texto', exact: true }).click();
+    await expect(editorModal.locator('#editor-text-overlay')).toBeVisible();
+    await editorModal.getByPlaceholder(/Escreva sua mensagem/i).fill('Parabéns, Tina!\nMaria Silva');
+    await editorModal.getByRole('button', { name: 'OK', exact: true }).click();
+    await expect(editorModal.locator('#editor-text-overlay')).toBeHidden();
+    await expect(finishSlotBtn).toBeEnabled();
 
     // 5. Clica em Finalizar -> Pop-up de confirmação -> Salvar
     await finishSlotBtn.click();
