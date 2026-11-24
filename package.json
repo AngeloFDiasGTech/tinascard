@@ -1,0 +1,32 @@
+{
+  "name": "tinascard",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite build && wrangler dev",
+    "deploy": "vite build && wrangler deploy",
+    "db:migrate:local": "wrangler d1 migrations apply tinascard-db --local",
+    "db:migrate:remote": "wrangler d1 migrations apply tinascard-db --remote",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "hono": "^4.7.0",
+    "perfect-freehand": "^1.2.2"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.10.2",
+    "@cloudflare/vite-plugin": "^1.2.0",
+    "@cloudflare/workers-types": "^5.20261123.1",
+    "@playwright/test": "^1.51.1",
+    "typescript": "^5.8.2",
+    "vite": "^6.2.5",
+    "vitest": "^3.1.1",
+    "wrangler": "^4.10.0"
+  }
+}

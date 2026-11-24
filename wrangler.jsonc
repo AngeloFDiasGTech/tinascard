@@ -1,0 +1,28 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "tinascard",
+  "main": "src/worker/index.ts",
+  "compatibility_date": "2025-04-01",
+  "routes": [
+    {
+      "pattern": "tinascard.angelofdiasg.tech",
+      "custom_domain": true
+    }
+  ],
+  "assets": {
+    "not_found_handling": "single-page-application",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "tinascard-db",
+      "database_id": "9098e050-b734-40cb-965f-240d39460556",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "triggers": {
+    "crons": ["0 4 * * *"]
+  }
+}
