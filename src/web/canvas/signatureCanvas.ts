@@ -1,4 +1,5 @@
 import { getStroke } from 'perfect-freehand';
+import type { SlotGeometry } from '../../shared/layout';
 
 export interface NormalizedPoint {
   /** Coordenada X normalizada [0..1] relativa à largura do espaço */
@@ -10,6 +11,21 @@ export interface NormalizedPoint {
 }
 
 export type Stroke = NormalizedPoint[];
+
+/**
+ * Escala canônica fixa (~280 DPI em relação às dimensões físicas em mm na folha A4).
+ * Tanto o preview (celular ou PC) quanto o PNG exportado usam EXATAMENTE estas
+ * coordenadas virtuais, garantindo mesma quebra de linha e mesmo tamanho físico
+ * em qualquer dispositivo e na impressão.
+ */
+const VIRTUAL_PX_PER_MM = 11;
+
+export function getVirtualDimensions(geom: SlotGeometry): { width: number; height: number } {
+  return {
+    width: Math.round(geom.widthMm * VIRTUAL_PX_PER_MM),
+    height: Math.round(geom.heightMm * VIRTUAL_PX_PER_MM),
+  };
+}
 
 function getSvgPathFromStroke(stroke: number[][]): string {
   if (!stroke.length) return '';
@@ -84,25 +100,27 @@ function wrapTextLines(
 
 /**
  * Desenha texto manuscrito (fonte Caveat, tinta preta) centralizado horizontalmente
- * e alinhado na parte superior do espaço, deixando a área inferior livre para assinatura/desenho.
+ * e alinhado na parte superior do espaço, usando tamanho fixo em milímetros A4
+ * para manter consistência entre celular, PC e todos os 24 espaços.
  */
 function drawTypedText(
   ctx: CanvasRenderingContext2D,
   text: string,
-  width: number,
-  height: number,
+  virtualWidth: number,
+  virtualHeight: number,
 ): void {
   const trimmed = text.trim();
   if (!trimmed) return;
 
-  const paddingX = width * 0.08;
-  const paddingTop = height * 0.09;
-  const paddingBottom = height * 0.1;
-  const maxWidth = width - paddingX * 2;
-  const maxHeight = height - paddingTop - paddingBottom;
+  const paddingX = Math.round(5.5 * VIRTUAL_PX_PER_MM);
+  const paddingTop = Math.round(3.0 * VIRTUAL_PX_PER_MM);
+  const paddingBottom = Math.round(3.2 * VIRTUAL_PX_PER_MM);
+  const maxWidth = virtualWidth - paddingX * 2;
+  const maxHeight = virtualHeight - paddingTop - paddingBottom;
 
-  let fontSize = Math.round(height * 0.22);
-  const minFontSize = Math.max(14, Math.round(height * 0.11));
+  // ~6.6mm de altura na folha A4 — legível, proporcional e deixa amplo espaço inferior para assinatura
+  let fontSize = Math.round(6.6 * VIRTUAL_PX_PER_MM);
+  const minFontSize = Math.round(3.4 * VIRTUAL_PX_PER_MM);
   let lines: string[] = [];
   let lineHeight = fontSize * 1.14;
 
@@ -126,8 +144,8 @@ function drawTypedText(
 
   lines.forEach((line, idx) => {
     const y = startY + idx * lineHeight;
-    if (y <= height - paddingBottom / 2) {
-      ctx.fillText(line, width / 2, y);
+    if (y <= virtualHeight - paddingBottom / 2) {
+      ctx.fillText(line, virtualWidth / 2, y);
     }
   });
   ctx.restore();
@@ -136,19 +154,20 @@ function drawTypedText(
 function drawStrokes(
   ctx: CanvasRenderingContext2D,
   strokes: Stroke[],
-  width: number,
-  height: number,
+  virtualWidth: number,
+  virtualHeight: number,
 ): void {
   if (!strokes.length) return;
 
-  const baseSize = Math.max(2.6, Math.min(width, height) * 0.022);
+  // Espessura física consistente de ~0.82mm na folha A4
+  const baseSize = Number((0.82 * VIRTUAL_PX_PER_MM).toFixed(2));
   ctx.save();
   ctx.fillStyle = '#111111';
 
   for (const stroke of strokes) {
     if (stroke.length === 0) continue;
 
-    const scaledPoints = stroke.map((pt) => [pt.x * width, pt.y * height, pt.p]);
+    const scaledPoints = stroke.map((pt) => [pt.x * virtualWidth, pt.y * virtualHeight, pt.p]);
     const outline = getStroke(scaledPoints, {
       size: baseSize,
       thinning: 0.55,
@@ -168,63 +187,68 @@ function drawStrokes(
 }
 
 /**
- * Renderiza texto + desenho em um canvas qualquer (preview ao vivo ou exportação 300 DPI).
+ * Renderiza texto + desenho nas coordenadas virtuais canônicas do espaço.
  */
 export function renderSignatureComposition(
   ctx: CanvasRenderingContext2D,
-  width: number,
-  height: number,
+  virtualWidth: number,
+  virtualHeight: number,
   text: string,
   strokes: Stroke[],
 ): void {
-  ctx.clearRect(0, 0, width, height);
-  drawTypedText(ctx, text, width, height);
-  drawStrokes(ctx, strokes, width, height);
+  ctx.clearRect(0, 0, virtualWidth, virtualHeight);
+  drawTypedText(ctx, text, virtualWidth, virtualHeight);
+  drawStrokes(ctx, strokes, virtualWidth, virtualHeight);
 }
 
 /**
- * Gera a imagem final PNG transparente em alta resolução (300 DPI equivalente)
- * mantendo exatamente a proporção retangular do espaço escolhido.
+ * Gera a imagem final PNG transparente em alta resolução (~280 DPI)
+ * usando exatamente a mesma coordenada virtual exibida no preview.
  */
 export function exportSignaturePng(
-  aspectRatio: number,
+  geom: SlotGeometry,
   text: string,
   strokes: Stroke[],
 ): string {
-  const exportWidth = 960;
-  const exportHeight = Math.max(220, Math.round(exportWidth / aspectRatio));
+  const { width, height } = getVirtualDimensions(geom);
 
   const offscreen = document.createElement('canvas');
-  offscreen.width = exportWidth;
-  offscreen.height = exportHeight;
+  offscreen.width = width;
+  offscreen.height = height;
 
   const ctx = offscreen.getContext('2d');
   if (!ctx) {
     throw new Error('Não foi possível inicializar o contexto de desenho.');
   }
 
-  renderSignatureComposition(ctx, exportWidth, exportHeight, text, strokes);
+  renderSignatureComposition(ctx, width, height, text, strokes);
   return offscreen.toDataURL('image/png');
 }
 
 export class SignatureCanvasController {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
+  private virtualWidth: number;
+  private virtualHeight: number;
   private strokes: Stroke[] = [];
   private activeStroke: Stroke | null = null;
   private activePointerId: number | null = null;
   private drawingEnabled = false;
   private typedText = '';
+  private destroyed = false;
   private onChange: () => void;
   private resizeObserver: ResizeObserver;
 
-  constructor(canvas: HTMLCanvasElement, onChange: () => void) {
+  constructor(canvas: HTMLCanvasElement, geom: SlotGeometry, onChange: () => void) {
     this.canvas = canvas;
     const ctx = canvas.getContext('2d');
     if (!ctx) {
       throw new Error('Contexto 2D indisponível.');
     }
     this.ctx = ctx;
+    const dims = getVirtualDimensions(geom);
+    this.virtualWidth = dims.width;
+    this.virtualHeight = dims.height;
     this.onChange = onChange;
 
     this.handlePointerDown = this.handlePointerDown.bind(this);
@@ -242,6 +266,15 @@ export class SignatureCanvasController {
     });
     this.resizeObserver.observe(this.canvas);
     this.syncCanvasResolution();
+
+    // Garante re-renderização com as métricas exatas da fonte Caveat após carregamento
+    if (document.fonts?.ready) {
+      void document.fonts.ready.then(() => {
+        if (!this.destroyed) {
+          this.redraw();
+        }
+      });
+    }
   }
 
   public setDrawingEnabled(enabled: boolean): void {
@@ -287,23 +320,32 @@ export class SignatureCanvasController {
   }
 
   public redraw(): void {
-    const dpr = Math.min(window.devicePixelRatio || 1, 3);
-    const width = this.canvas.width / dpr;
-    const height = this.canvas.height / dpr;
-    if (width <= 0 || height <= 0) return;
+    if (this.canvas.width <= 0 || this.canvas.height <= 0) return;
+
+    const scaleX = this.canvas.width / this.virtualWidth;
+    const scaleY = this.canvas.height / this.virtualHeight;
 
     this.ctx.save();
-    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    // Escala as coordenadas virtuais fixas para o tamanho real do canvas na tela
+    // garantindo layout 100% idêntico entre celular, PC e PNG exportado
+    this.ctx.setTransform(scaleX, 0, 0, scaleY, 0, 0);
     const allStrokes = this.activeStroke ? [...this.strokes, this.activeStroke] : this.strokes;
-    renderSignatureComposition(this.ctx, width, height, this.typedText, allStrokes);
+    renderSignatureComposition(
+      this.ctx,
+      this.virtualWidth,
+      this.virtualHeight,
+      this.typedText,
+      allStrokes,
+    );
     this.ctx.restore();
   }
 
-  public exportPng(aspectRatio: number): string {
-    return exportSignaturePng(aspectRatio, this.typedText, this.strokes);
+  public exportPng(geom: SlotGeometry): string {
+    return exportSignaturePng(geom, this.typedText, this.strokes);
   }
 
   public destroy(): void {
+    this.destroyed = true;
     this.resizeObserver.disconnect();
     this.canvas.removeEventListener('pointerdown', this.handlePointerDown);
     this.canvas.removeEventListener('pointermove', this.handlePointerMove);

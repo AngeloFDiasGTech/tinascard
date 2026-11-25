@@ -184,9 +184,7 @@ export function mountCardView(root: HTMLElement, options: CardViewOptions): () =
                 </div>
 
                 <div class="a4-message-block">
-                  <h1 class="a4-message-text ${isLongMessage ? 'a4-message-text--long' : ''}">
-                    ${escapeHtml(cardData.message)}
-                  </h1>
+                  <h1 class="a4-message-text ${isLongMessage ? 'a4-message-text--long' : ''}">${escapeHtml(cardData.message.trim())}</h1>
                 </div>
 
                 <p class="a4-signed-by">Assinado por:</p>

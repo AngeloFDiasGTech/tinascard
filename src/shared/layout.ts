@@ -7,6 +7,9 @@ export interface SlotGeometry {
   widthPercent: number;
   /** Peso relativo da altura da faixa */
   heightWeight: number;
+  /** Dimensões aproximadas reais em milímetros na folha A4 */
+  widthMm: number;
+  heightMm: number;
   /** Proporção aproximada largura / altura na folha A4 (usada no editor/canvas) */
   aspectRatio: number;
 }
@@ -67,6 +70,8 @@ function buildPageRows(
       col: 0,
       widthPercent: rowSpec.weights[0],
       heightWeight: rowSpec.heightWeight,
+      widthMm: Number(leftWidthMm.toFixed(2)),
+      heightMm: Number(rowHeightMm.toFixed(2)),
       aspectRatio: Number((leftWidthMm / rowHeightMm).toFixed(3)),
     };
 
@@ -77,6 +82,8 @@ function buildPageRows(
       col: 1,
       widthPercent: rowSpec.weights[1],
       heightWeight: rowSpec.heightWeight,
+      widthMm: Number(rightWidthMm.toFixed(2)),
+      heightMm: Number(rowHeightMm.toFixed(2)),
       aspectRatio: Number((rightWidthMm / rowHeightMm).toFixed(3)),
     };
 

@@ -196,7 +196,9 @@
   font-weight: 500;
   line-height: 1.38;
   color: #18181b;
-  white-space: pre-wrap;
+  text-align: center;
+  text-wrap: balance;
+  white-space: pre-line;
   word-break: break-word;
 }
 
@@ -605,5 +607,12 @@ button.signature-slot:focus-visible .slot-placeholder {
 
   .modal-panel {
     padding: 16px 14px;
+    gap: 12px;
+  }
+
+  .editor-tools-group .btn--ghost {
+    padding: 6px 10px;
+    font-size: 0.85rem;
+    min-height: 40px;
   }
 }

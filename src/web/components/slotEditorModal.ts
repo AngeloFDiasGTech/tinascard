@@ -158,7 +158,7 @@ export function openSlotEditorModal(options: SlotEditorOptions): () => void {
     slotBox.classList.toggle('editor-slot-box--draw', mode === 'draw');
   };
 
-  const canvasCtrl = new SignatureCanvasController(canvasEl, updateUiState);
+  const canvasCtrl = new SignatureCanvasController(canvasEl, geom, updateUiState);
 
   const setMode = (next: EditorMode) => {
     mode = next;
@@ -280,7 +280,7 @@ export function openSlotEditorModal(options: SlotEditorOptions): () => void {
 
   // Sub-modal de Confirmação ("riscando o cartão")
   const openConfirmDialog = () => {
-    const previewPng = canvasCtrl.exportPng(geom.aspectRatio);
+    const previewPng = canvasCtrl.exportPng(geom);
     const typedText = canvasCtrl.getTypedText().trim();
     const altText = typedText
       ? canvasCtrl.hasDrawing()
@@ -352,7 +352,7 @@ export function openSlotEditorModal(options: SlotEditorOptions): () => void {
 
       try {
         const targetGeom = getSlotGeometry(targetSlotIndex);
-        const pngData = canvasCtrl.exportPng(targetGeom.aspectRatio);
+        const pngData = canvasCtrl.exportPng(targetGeom);
         const updatedCard = await signSlotApi(cardId, targetSlotIndex, pngData, altText);
         saved = true;
         closeConfirm();
@@ -458,7 +458,7 @@ export function openSlotEditorModal(options: SlotEditorOptions): () => void {
           await lockSlotApi(cardId, nextSlotIndex);
           currentSlotIndex = nextSlotIndex;
           const nextGeom = getSlotGeometry(nextSlotIndex);
-          const pngData = canvasCtrl.exportPng(nextGeom.aspectRatio);
+          const pngData = canvasCtrl.exportPng(nextGeom);
           const updatedCard = await signSlotApi(cardId, nextSlotIndex, pngData, altText);
           saved = true;
           closeConflict();
