@@ -264,6 +264,43 @@ describe('API e Concorrência do Tinas Card (D1 / SQLite real)', () => {
     }
   });
 
+  it('injeta metadados Open Graph dinâmicos ao acessar /c/:id para prévia em WhatsApp e Teams', async () => {
+    const card = await createCard(db, 'Chá de Fralda de Tina', 'Que a chegada seja leve!');
+    const fakeIndexHtml = `<!DOCTYPE html><html><head>
+      <title>Tinas Card</title>
+      <meta name="description" content="Desc" />
+      <meta property="og:url" content="https://tinascard.angelofdiasg.tech/" />
+      <meta property="og:title" content="Tinas Card" />
+      <meta property="og:description" content="Desc" />
+      <meta property="og:image" content="https://tinascard.angelofdiasg.tech/og-image.png" />
+      <meta name="twitter:title" content="Tinas Card" />
+      <meta name="twitter:description" content="Desc" />
+    </head><body></body></html>`;
+
+    const envWithAssets: Env = {
+      DB: db,
+      ASSETS: {
+        async fetch() {
+          return new Response(fakeIndexHtml, {
+            status: 200,
+            headers: { 'content-type': 'text/html; charset=UTF-8' },
+          });
+        },
+      } as unknown as Fetcher,
+    };
+
+    const res = await app.fetch(
+      new Request(`https://tinascard.angelofdiasg.tech/c/${card.id}`),
+      envWithAssets,
+    );
+    expect(res.status).toBe(200);
+    const html = await res.text();
+    expect(html).toContain('property="og:title" content="Assine o cartão: Chá de Fralda de Tina — Tinas Card"');
+    expect(html).toContain('property="og:description" content="Que a chegada seja leve!"');
+    expect(html).toContain(`property="og:url" content="https://tinascard.angelofdiasg.tech/c/${card.id}"`);
+    expect(html).toContain('property="og:image" content="https://tinascard.angelofdiasg.tech/og-image.png"');
+  });
+
   it('oculta e expurga cartões após 45 dias', async () => {
     const t0 = new Date('2026-01-01T10:00:00.000Z');
     const card = await createCard(db, 'Cartão Temporário', 'Mensagem', t0);

@@ -27,6 +27,52 @@ function getSessionToken(rawHeader: string | undefined | null): string | null {
   return /^[A-Za-z0-9_-]+$/.test(trimmed) ? trimmed : null;
 }
 
+function escapeAttr(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function injectCardMetaTags(
+  html: string,
+  title: string,
+  description: string,
+  url: string,
+): string {
+  const safeTitle = escapeAttr(title);
+  const safeDesc = escapeAttr(description);
+  const safeUrl = escapeAttr(url);
+
+  return html
+    .replace(/<title>[\s\S]*?<\/title>/i, `<title>${safeTitle}</title>`)
+    .replace(
+      /(<meta\s+name="description"\s+content=")[^"]*(")/i,
+      `$1${safeDesc}$2`,
+    )
+    .replace(
+      /(<meta\s+property="og:title"\s+content=")[^"]*(")/i,
+      `$1${safeTitle}$2`,
+    )
+    .replace(
+      /(<meta\s+property="og:description"\s+content=")[^"]*(")/i,
+      `$1${safeDesc}$2`,
+    )
+    .replace(
+      /(<meta\s+property="og:url"\s+content=")[^"]*(")/i,
+      `$1${safeUrl}$2`,
+    )
+    .replace(
+      /(<meta\s+name="twitter:title"\s+content=")[^"]*(")/i,
+      `$1${safeTitle}$2`,
+    )
+    .replace(
+      /(<meta\s+name="twitter:description"\s+content=")[^"]*(")/i,
+      `$1${safeDesc}$2`,
+    );
+}
+
 export function createApp() {
   const app = new Hono<{ Bindings: Env }>();
 
@@ -249,6 +295,41 @@ export function createApp() {
     }
 
     return c.json(result.card);
+  });
+
+  // Metadados Open Graph dinâmicos ao compartilhar link direto de um cartão (/c/:id)
+  app.get('/c/:id', async (c) => {
+    if (!c.env.ASSETS) {
+      return c.notFound();
+    }
+
+    const assetUrl = new URL('/index.html', c.req.url);
+    const assetRes = await c.env.ASSETS.fetch(new Request(assetUrl.toString()));
+    const contentType = assetRes.headers.get('content-type') || '';
+    if (!assetRes.ok || !contentType.includes('text/html')) {
+      return assetRes;
+    }
+
+    const code = normalizeCardCode(c.req.param('id'));
+    if (!isValidCardCode(code)) {
+      return assetRes;
+    }
+
+    const card = await getCard(c.env.DB, code, null);
+    if (!card) {
+      return assetRes;
+    }
+
+    const html = await assetRes.text();
+    const ogTitle = `Assine o cartão: ${card.name} — Tinas Card`;
+    const ogDesc = card.message.replace(/\s+/g, ' ').trim();
+    const canonicalUrl = `${new URL(c.req.url).origin}/c/${card.id}`;
+    const updatedHtml = injectCardMetaTags(html, ogTitle, ogDesc, canonicalUrl);
+
+    const headers = new Headers(assetRes.headers);
+    headers.delete('content-length');
+    headers.set('content-type', 'text/html; charset=UTF-8');
+    return new Response(updatedHtml, { status: 200, headers });
   });
 
   // Fallback para assets estáticos / SPA
